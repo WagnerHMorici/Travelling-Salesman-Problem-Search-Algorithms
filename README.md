@@ -1,1 +1,1 @@
-# Travelling-Salesman-Problem-in-C
+# Travelling-Salesman-Problem-Search-Algorithms
