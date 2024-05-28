@@ -4,16 +4,11 @@
 #include <math.h>
 #include <time.h>
 
-#define NUM_CITIES 7 // Número de cidades
+#define NUM_CITIES 15 // Número de cidades
 #define POP_SIZE 100 // Tamanho da população
 #define MAX_GENERATIONS 500 // Número máximo de gerações
 #define MUTATION_RATE 0.01 // Taxa de mutação
 #define INTERVALO_TEMPO 60 // Intervalo de tempo para exportar informações (em segundos)
-
-// Definição da estrutura de uma cidade (não necessária neste contexto)
-// typedef struct {
-//     int x, y;
-// } City;
 
 // Definição da estrutura de um indivíduo (solução)
 typedef struct {
@@ -146,13 +141,33 @@ void mutate(Individual *child) {
     child->route[city2] = temp;
 }
 
+// Função para exportar os resultados para um arquivo de texto
+void export_results_to_file(const char *filename, Individual best_individual, double total_distance, double simulation_time) {
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL) {
+        fprintf(stderr, "Erro ao abrir o arquivo %s\n", filename);
+        exit(1);
+    }
+
+    fprintf(file, "Melhor rota encontrada:\n");
+    for (int i = 0; i < NUM_CITIES; i++) {
+        fprintf(file, "%d ", best_individual.route[i]);
+    }
+    fprintf(file, "\nValor de fitness: %f\n", best_individual.fitness);
+    fprintf(file, "Custo do caminho escolhido: %f\n", total_distance);
+    fprintf(file, "Tempo de simulação: %f segundos\n", simulation_time);
+
+    fclose(file);
+}
+
 // Função para executar o algoritmo genético
 void genetic_algorithm() {
     Individual population[POP_SIZE]; 
     Individual offspring[POP_SIZE]; 
 
     srand(time(NULL)); 
-    initialize_cost_matrix_from_file("cidades1.csv"); 
+    initialize_cost_matrix_from_file("cidades.csv"); 
 
     // Inicialize a população
     for (int i = 0; i < POP_SIZE; i++) {
@@ -161,6 +176,7 @@ void genetic_algorithm() {
     }
 
     int generation = 0;
+    clock_t start_time = clock(); // Iniciar a medição do tempo
 
     while (generation < MAX_GENERATIONS) {
         // Execute seleção, crossover e mutação para criar a próxima geração
@@ -193,13 +209,6 @@ void genetic_algorithm() {
         }
     }
 
-    // Imprima a melhor rota e seu valor de fitness
-    printf("Melhor rota encontrada:\n");
-    for (int i = 0; i < NUM_CITIES; i++) {
-        printf("%d ", best_individual.route[i]);
-    }
-    printf("\nValor de fitness: %f\n", best_individual.fitness);
-
     // Calcular o custo do caminho escolhido
     double total_distance = 0;
     for (int i = 0; i < NUM_CITIES - 1; i++) {
@@ -207,7 +216,21 @@ void genetic_algorithm() {
     }
     // Adicione a distância da última cidade de volta para a primeira
     total_distance += cost_matrix[best_individual.route[NUM_CITIES - 1]][best_individual.route[0]];
+
+    clock_t end_time = clock(); // Finalizar a medição do tempo
+    double simulation_time = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+
+    // Imprima a melhor rota e seu valor de fitness
+    printf("Melhor rota encontrada:\n");
+    for (int i = 0; i < NUM_CITIES; i++) {
+        printf("%d ", best_individual.route[i]);
+    }
+    printf("\nValor de fitness: %f\n", best_individual.fitness);
     printf("Custo do caminho escolhido: %f\n", total_distance);
+    printf("Tempo de simulação: %f segundos\n", simulation_time);
+
+    // Exportar resultados para um arquivo de texto
+    export_results_to_file("resultados_geneticos.txt", best_individual, total_distance, simulation_time);
 }
 
 int main() {
