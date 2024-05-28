@@ -2,192 +2,148 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h> // Biblioteca para manipulação de tempo
+#include <time.h>
+#include <limits.h>
 
-#define INFINITO 999999 // Definindo um valor grande para representar infinito
+#define MAX_CIDADES 15
+#define NOME_ARQUIVO "cidades1.csv"
+#define VALOR_INVALIDO -1
+
+typedef struct {
+    int custos[MAX_CIDADES][MAX_CIDADES];
+    int tamanho;
+} Grafo;
 
 // Função para ler os custos entre as cidades a partir de um arquivo CSV
-int** ler_custos(const char* nome_arquivo, int* tamanho) {
-    
-    // Abre o arquivo para leitura
-    FILE* file = fopen(nome_arquivo, "r"); 
-    if (!file) { 
-        // Se ocorrer um erro ao abrir o arquivo, exibe uma mensagem e encerra o programa
+Grafo ler_custos(const char* nome_arquivo) {
+    FILE* file = fopen(nome_arquivo, "r");
+    if (!file) {
         printf("Erro ao abrir o arquivo %s\n", nome_arquivo);
         exit(EXIT_FAILURE);
     }
 
-    int** custos; // Declaração da matriz de custos
-    int linhas = 0; // Contador de linhas
-    int colunas = 0; // Contador de colunas
-    char linha[BUFSIZ]; // Buffer para leitura de linhas
+    Grafo grafo;
+    grafo.tamanho = 0;
 
-    // Contando o número de linhas e colunas no arquivo
+    char linha[BUFSIZ];
     while (fgets(linha, sizeof(linha), file)) {
-        linhas++; // Incrementa o contador de linhas
-        colunas = 0; // Reinicia o contador de colunas para cada linha
-
-        char* token;
-
-        // Tokeniza a linha com base na vírgula
-        token = strtok(linha, ","); 
-
+        int cidade_atual = 0;
+        char* token = strtok(linha, ",");
         while (token != NULL) {
-            colunas++; // Incrementa o contador de colunas
-            token = strtok(NULL, ","); 
-        }
-    }
-
-    // Define o tamanho da matriz (número de linhas)
-    *tamanho = linhas; 
-
-    // Alocando espaço para a matriz de custos
-    custos = (int**)malloc(linhas * sizeof(int*));
-    for (int i = 0; i < linhas; i++) {
-        custos[i] = (int*)malloc(colunas * sizeof(int));
-    }
-
-    // Voltando ao início do arquivo
-    rewind(file);
-
-    int i = 0;
-    // Preenchendo a matriz de custos com os valores do arquivo
-    while (fgets(linha, sizeof(linha), file)) {
-        int j = 0;
-        char* token;
-
-        // Tokeniza a linha com base na vírgula
-        token = strtok(linha, ",");
-        while (token != NULL) {
-            custos[i][j++] = atoi(token); // Converte o token para inteiro e armazena na matriz
+            grafo.custos[grafo.tamanho][cidade_atual++] = atoi(token);
             token = strtok(NULL, ",");
         }
-        i++;
+        grafo.tamanho++;
     }
 
-    // Fecha o arquivo
-    fclose(file); 
-
-    // Retorna a matriz de custos
-    return custos;
+    fclose(file);
+    return grafo;
 }
 
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, int n, int* melhor_custo, int* melhor_rota, int* rota_atual) {
+// Função auxiliar para encontrar o próximo vizinho não visitado mais próximo
+int proximo_vizinho(int cidade_atual, const Grafo* grafo, bool* visitados) {
+    int prox_cidade = -1;
+    int menor_custo = INT_MAX;
 
-    // Verifica se todas as cidades foram visitadas
+    for (int i = 0; i < grafo->tamanho; i++) {
+        if (!visitados[i] && grafo->custos[cidade_atual][i] < menor_custo) {
+            prox_cidade = i;
+            menor_custo = grafo->custos[cidade_atual][i];
+        }
+    }
+
+    return prox_cidade;
+}
+
+// Função recursiva para encontrar a melhor rota usando busca em profundidade
+void tsp_dfs(int cidade_atual, int custo_atual, const Grafo* grafo, bool* visitados, int* melhor_custo, int* melhor_rota, int* rota_atual) {
+    // Se o custo atual já é maior ou igual ao melhor custo encontrado até agora, retorne
+    if (custo_atual >= *melhor_custo)
+        return;
+
+    // Se todas as cidades foram visitadas, atualize o melhor custo e a melhor rota
     bool todas_visitadas = true;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < grafo->tamanho; i++) {
         if (!visitados[i]) {
             todas_visitadas = false;
             break;
         }
     }
 
-    // Se todas as cidades foram visitadas
     if (todas_visitadas) {
-        // Verifica se o custo atual é menor que o melhor custo encontrado até agora
-        if (custo_atual < *melhor_custo) {
-            *melhor_custo = custo_atual; // Atualiza o melhor custo
-            // Copia a rota atual para a melhor rota
-            for (int i = 0; i < n; i++) {
-                melhor_rota[i] = rota_atual[i];
-            }
-        }
-        return; // Retorna da função recursiva
+        *melhor_custo = custo_atual;
+        memcpy(melhor_rota, rota_atual, grafo->tamanho * sizeof(int));
+        return;
     }
 
-    // Percorre todas as cidades
-    for (int prox_cidade = 0; prox_cidade < n; prox_cidade++) {
-        // Se a próxima cidade ainda não foi visitada
-        if (!visitados[prox_cidade]) {
-            visitados[prox_cidade] = true; // Marca a cidade como visitada
-            rota_atual[cidade_atual] = prox_cidade; // Adiciona a cidade na rota atual
+    // Encontre o próximo vizinho não visitado mais próximo
+    int prox_cidade = proximo_vizinho(cidade_atual, grafo, visitados);
 
-            // Chama recursivamente a função para a próxima cidade
-            tsp_dfs(prox_cidade, custo_atual + custos[cidade_atual][prox_cidade], custos, visitados, n, melhor_custo, melhor_rota, rota_atual);
+    // Se não houver próximo vizinho válido, retorne
+    if (prox_cidade == -1)
+        return;
 
-            visitados[prox_cidade] = false; // Desmarca a cidade como visitada
-        }
-    }
+    // Marque a cidade como visitada
+    visitados[prox_cidade] = true;
+    // Adicione a cidade à rota atual
+    rota_atual[cidade_atual] = prox_cidade;
+    // Chame recursivamente a função para a próxima cidade
+    tsp_dfs(prox_cidade, custo_atual + grafo->custos[cidade_atual][prox_cidade], grafo, visitados, melhor_custo, melhor_rota, rota_atual);
+    // Desmarque a cidade como visitada para explorar outras ramificações
+    visitados[prox_cidade] = false;
 }
 
 // Função para escrever os resultados em um arquivo
-
-void escrever_resultados(const char* nome_arquivo, int melhor_custo, int* melhor_rota, int n, double tempo_execucao) {
-    // Abre o arquivo para escrita
+void escrever_resultados(const char* nome_arquivo, int melhor_custo, const int* melhor_rota, int tamanho, double tempo_execucao) {
     FILE* file = fopen(nome_arquivo, "w");
     if (!file) {
-        // Se ocorrer um erro ao abrir o arquivo, exibe uma mensagem
         printf("Erro ao abrir o arquivo %s\n", nome_arquivo);
         return;
     }
 
-    // Escreve o melhor custo encontrado
     fprintf(file, "Melhor custo encontrado: %d\n", melhor_custo);
     fprintf(file, "Melhor rota encontrada: ");
-
-    // Escreve a melhor rota encontrada
-    for (int i = 0; i < n; i++) {
-        fprintf(file, "%d ", melhor_rota[i] + 1); // Incrementa o índice em 1 para obter a cidade real
+    for (int i = 0; i < tamanho; i++) {
+        fprintf(file, "%d ", melhor_rota[i] + 1);
     }
-    fprintf(file, "\nTempo de execução: %.2f segundos\n", tempo_execucao); // Escreve o tempo de execução
+    fprintf(file, "\nTempo de execução: %.2f segundos\n", tempo_execucao);
 
-    // Fecha o arquivo
     fclose(file);
 }
 
 // Função principal para encontrar a melhor rota
-void encontrar_melhor_rota(const char* nome_arquivo) {
-    int n;
+void encontrar_melhor_rota(const Grafo* grafo) {
+    bool visitados[MAX_CIDADES] = {false};
+    int melhor_custo = INT_MAX;
+    int melhor_rota[MAX_CIDADES];
+    int rota_atual[MAX_CIDADES] = {0};
 
-    // Lê a matriz de custos do arquivo
-    int** custos = ler_custos(nome_arquivo, &n);
+    visitados[0] = true;
 
-    // Declaração de variáveis
-    bool visitados[n];
-    int melhor_custo = INFINITO;
-    int melhor_rota[n];
-    int rota_atual[n];
-    int cidades_visitadas = 1; // Movido para fora da função encontrar_melhor_rota
-
-    // Inicializa o vetor de cidades visitadas
-    for (int i = 0; i < n; i++) {
-        visitados[i] = false;
-    }
-
-    visitados[0] = true; // Marca a cidade inicial como visitada
-
-    // Inicia a contagem do tempo de execução
     clock_t inicio = clock();
 
-    // Chama a função recursiva para encontrar a melhor rota
-    tsp_dfs(0, 0, custos, visitados, n, &melhor_custo, melhor_rota, rota_atual);
+    tsp_dfs(0, 0, grafo, visitados, &melhor_custo, melhor_rota, rota_atual);
 
-    // Finaliza a contagem do tempo de execução
     clock_t fim = clock();
-    double tempo_execucao = (double)(fim - inicio) / CLOCKS_PER_SEC; // Calcula o tempo de execução
+    double tempo_execucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
 
-    // Escreve os resultados no arquivo
-    escrever_resultados("Profundidade_resultado.txt", melhor_custo, melhor_rota, n, tempo_execucao);
+    escrever_resultados("Profundidade_resultado.txt", melhor_custo, melhor_rota, grafo->tamanho, tempo_execucao);
 
-    // Exibe os resultados no console
     printf("Melhor custo encontrado: %d\n", melhor_custo);
     printf("Melhor rota encontrada: ");
-    for (int i = 0; i < n; i++) {
-        printf("%d ", melhor_rota[i]);
+    for (int i = 0; i < grafo->tamanho; i++) {
+        printf("%d ", melhor_rota[i] + 1);
     }
     printf("\nTempo de execução: %.2f segundos\n", tempo_execucao);
 }
+
 // Função principal
 int main() {
-    const char* nome_arquivo = "cidades1.csv"; // Nome do arquivo CSV contendo os custos
+    // Ler os custos entre as cidades do arquivo CSV
+    Grafo grafo = ler_custos(NOME_ARQUIVO);
 
-    // Chama a função para encontrar a melhor rota
-    encontrar_melhor_rota(nome_arquivo); 
-    
+    // Encontrar a melhor rota
+    encontrar_melhor_rota(&grafo);
+
     return 0;
 }
-
