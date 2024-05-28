@@ -73,10 +73,21 @@ int** ler_custos(const char* nome_arquivo, int* tamanho) {
 }
 
 // Função recursiva para encontrar a melhor rota através de busca em profundidade
-void tsp_dfs(int cidade_atual, int custo_atual, int* cidades_visitadas, int** custos, bool* visitados, int n, int* melhor_custo, int* melhor_rota, int* rota_atual) {
+// Função recursiva para encontrar a melhor rota através de busca em profundidade
+// Função recursiva para encontrar a melhor rota através de busca em profundidade
+void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, int n, int* melhor_custo, int* melhor_rota, int* rota_atual) {
+
+    // Verifica se todas as cidades foram visitadas
+    bool todas_visitadas = true;
+    for (int i = 0; i < n; i++) {
+        if (!visitados[i]) {
+            todas_visitadas = false;
+            break;
+        }
+    }
 
     // Se todas as cidades foram visitadas
-    if (*cidades_visitadas == n) {
+    if (todas_visitadas) {
         // Verifica se o custo atual é menor que o melhor custo encontrado até agora
         if (custo_atual < *melhor_custo) {
             *melhor_custo = custo_atual; // Atualiza o melhor custo
@@ -93,19 +104,18 @@ void tsp_dfs(int cidade_atual, int custo_atual, int* cidades_visitadas, int** cu
         // Se a próxima cidade ainda não foi visitada
         if (!visitados[prox_cidade]) {
             visitados[prox_cidade] = true; // Marca a cidade como visitada
-            rota_atual[*cidades_visitadas] = prox_cidade; // Adiciona a cidade na rota atual
-            (*cidades_visitadas)++; // Incrementa o contador de cidades visitadas
+            rota_atual[cidade_atual] = prox_cidade; // Adiciona a cidade na rota atual
 
             // Chama recursivamente a função para a próxima cidade
-            tsp_dfs(prox_cidade, custo_atual + custos[cidade_atual][prox_cidade], cidades_visitadas, custos, visitados, n, melhor_custo, melhor_rota, rota_atual);
+            tsp_dfs(prox_cidade, custo_atual + custos[cidade_atual][prox_cidade], custos, visitados, n, melhor_custo, melhor_rota, rota_atual);
 
-            (*cidades_visitadas)--; // Decrementa o contador de cidades visitadas
             visitados[prox_cidade] = false; // Desmarca a cidade como visitada
         }
     }
 }
 
 // Função para escrever os resultados em um arquivo
+
 void escrever_resultados(const char* nome_arquivo, int melhor_custo, int* melhor_rota, int n, double tempo_execucao) {
     // Abre o arquivo para escrita
     FILE* file = fopen(nome_arquivo, "w");
@@ -121,7 +131,7 @@ void escrever_resultados(const char* nome_arquivo, int melhor_custo, int* melhor
 
     // Escreve a melhor rota encontrada
     for (int i = 0; i < n; i++) {
-        fprintf(file, "%d ", melhor_rota[i]);
+        fprintf(file, "%d ", melhor_rota[i] + 1); // Incrementa o índice em 1 para obter a cidade real
     }
     fprintf(file, "\nTempo de execução: %.2f segundos\n", tempo_execucao); // Escreve o tempo de execução
 
@@ -141,7 +151,7 @@ void encontrar_melhor_rota(const char* nome_arquivo) {
     int melhor_custo = INFINITO;
     int melhor_rota[n];
     int rota_atual[n];
-    int cidades_visitadas = 1;
+    int cidades_visitadas = 1; // Movido para fora da função encontrar_melhor_rota
 
     // Inicializa o vetor de cidades visitadas
     for (int i = 0; i < n; i++) {
@@ -154,7 +164,7 @@ void encontrar_melhor_rota(const char* nome_arquivo) {
     clock_t inicio = clock();
 
     // Chama a função recursiva para encontrar a melhor rota
-    tsp_dfs(0, 0, &cidades_visitadas, custos, visitados, n, &melhor_custo, melhor_rota, rota_atual);
+    tsp_dfs(0, 0, custos, visitados, n, &melhor_custo, melhor_rota, rota_atual);
 
     // Finaliza a contagem do tempo de execução
     clock_t fim = clock();
@@ -171,7 +181,6 @@ void encontrar_melhor_rota(const char* nome_arquivo) {
     }
     printf("\nTempo de execução: %.2f segundos\n", tempo_execucao);
 }
-
 // Função principal
 int main() {
     const char* nome_arquivo = "cidades1.csv"; // Nome do arquivo CSV contendo os custos
@@ -181,3 +190,4 @@ int main() {
     
     return 0;
 }
+
