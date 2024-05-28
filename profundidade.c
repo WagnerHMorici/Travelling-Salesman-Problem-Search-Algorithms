@@ -72,11 +72,9 @@ int** ler_custos(const char* nome_arquivo, int* tamanho) {
     return custos;
 }
 
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-// Função recursiva para encontrar a melhor rota através de busca em profundidade
-void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, int n, int* melhor_custo, int* melhor_rota, int* rota_atual) {
 
+// Função recursiva para encontrar a melhor rota através de busca em profundidade
+void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, int n, int* melhor_custo, int* melhor_rota, int* rota_atual, int posicao_atual) {
     // Verifica se todas as cidades foram visitadas
     bool todas_visitadas = true;
     for (int i = 0; i < n; i++) {
@@ -104,11 +102,10 @@ void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, i
         // Se a próxima cidade ainda não foi visitada
         if (!visitados[prox_cidade]) {
             visitados[prox_cidade] = true; // Marca a cidade como visitada
-            rota_atual[cidade_atual] = prox_cidade; // Adiciona a cidade na rota atual
-
+            // Adiciona a cidade na rota atual
+            rota_atual[posicao_atual] = prox_cidade;
             // Chama recursivamente a função para a próxima cidade
-            tsp_dfs(prox_cidade, custo_atual + custos[cidade_atual][prox_cidade], custos, visitados, n, melhor_custo, melhor_rota, rota_atual);
-
+            tsp_dfs(prox_cidade, custo_atual + custos[cidade_atual][prox_cidade], custos, visitados, n, melhor_custo, melhor_rota, rota_atual, posicao_atual + 1);
             visitados[prox_cidade] = false; // Desmarca a cidade como visitada
         }
     }
@@ -116,6 +113,7 @@ void tsp_dfs(int cidade_atual, int custo_atual, int** custos, bool* visitados, i
 
 // Função para escrever os resultados em um arquivo
 
+// Função para escrever os resultados em um arquivo
 void escrever_resultados(const char* nome_arquivo, int melhor_custo, int* melhor_rota, int n, double tempo_execucao) {
     // Abre o arquivo para escrita
     FILE* file = fopen(nome_arquivo, "w");
@@ -151,20 +149,17 @@ void encontrar_melhor_rota(const char* nome_arquivo) {
     int melhor_custo = INFINITO;
     int melhor_rota[n];
     int rota_atual[n];
-    int cidades_visitadas = 1; // Movido para fora da função encontrar_melhor_rota
 
     // Inicializa o vetor de cidades visitadas
     for (int i = 0; i < n; i++) {
         visitados[i] = false;
     }
 
-    visitados[0] = true; // Marca a cidade inicial como visitada
-
     // Inicia a contagem do tempo de execução
     clock_t inicio = clock();
 
     // Chama a função recursiva para encontrar a melhor rota
-    tsp_dfs(0, 0, custos, visitados, n, &melhor_custo, melhor_rota, rota_atual);
+    tsp_dfs(0, 0, custos, visitados, n, &melhor_custo, melhor_rota, rota_atual, 0);
 
     // Finaliza a contagem do tempo de execução
     clock_t fim = clock();
@@ -177,13 +172,13 @@ void encontrar_melhor_rota(const char* nome_arquivo) {
     printf("Melhor custo encontrado: %d\n", melhor_custo);
     printf("Melhor rota encontrada: ");
     for (int i = 0; i < n; i++) {
-        printf("%d ", melhor_rota[i]);
+        printf("%d ", melhor_rota[i] + 1); // Incrementa o índice em 1 para obter a cidade real
     }
     printf("\nTempo de execução: %.2f segundos\n", tempo_execucao);
 }
 // Função principal
 int main() {
-    const char* nome_arquivo = "cidades1.csv"; // Nome do arquivo CSV contendo os custos
+    const char* nome_arquivo = "cidades9.csv"; // Nome do arquivo CSV contendo os custos
 
     // Chama a função para encontrar a melhor rota
     encontrar_melhor_rota(nome_arquivo); 
