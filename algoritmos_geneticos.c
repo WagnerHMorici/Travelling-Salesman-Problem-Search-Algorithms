@@ -4,16 +4,16 @@
 #include <math.h>
 #include <time.h>
 
-#define NUM_CITIES 15 // Número de cidades
+#define NUM_CITIES 7 // Número de cidades
 #define POP_SIZE 100 // Tamanho da população
 #define MAX_GENERATIONS 500 // Número máximo de gerações
 #define MUTATION_RATE 0.01 // Taxa de mutação
 #define INTERVALO_TEMPO 60 // Intervalo de tempo para exportar informações (em segundos)
 
-// Definição da estrutura de uma cidade
-typedef struct {
-    int x, y; 
-} City;
+// Definição da estrutura de uma cidade (não necessária neste contexto)
+// typedef struct {
+//     int x, y;
+// } City;
 
 // Definição da estrutura de um indivíduo (solução)
 typedef struct {
@@ -21,15 +21,10 @@ typedef struct {
     double fitness; 
 } Individual;
 
-City cities[NUM_CITIES]; // Array de cidades
+double cost_matrix[NUM_CITIES][NUM_CITIES]; // Matriz de custos
 
-// Função para calcular a distância euclidiana entre duas cidades
-double calc_distance(City city1, City city2) {
-    return sqrt(pow(city1.x - city2.x, 2) + pow(city1.y - city2.y, 2));
-}
-
-// Função para inicializar as cidades a partir de um arquivo CSV
-void initialize_cities_from_file(const char *filename) {
+// Função para inicializar a matriz de custos a partir de um arquivo CSV
+void initialize_cost_matrix_from_file(const char *filename) {
     FILE *file = fopen(filename, "r");
 
     if (file == NULL) {
@@ -44,8 +39,16 @@ void initialize_cities_from_file(const char *filename) {
             fprintf(stderr, "Erro ao ler o arquivo\n");
             exit(1);
         }
-        
-        sscanf(line, "%d,%d", &cities[i].x, &cities[i].y);
+
+        char *token = strtok(line, ",");
+        for (int j = 0; j < NUM_CITIES; j++) {
+            if (token == NULL) {
+                fprintf(stderr, "Erro ao ler o arquivo\n");
+                exit(1);
+            }
+            cost_matrix[i][j] = atof(token);
+            token = strtok(NULL, ",");
+        }
     }
     fclose(file);
 }
@@ -73,10 +76,10 @@ void calculate_fitness(Individual *individual) {
 
     // Calcule a distância total da rota
     for (int i = 0; i < NUM_CITIES - 1; i++) {
-        total_distance += calc_distance(cities[individual->route[i]], cities[individual->route[i + 1]]);
+        total_distance += cost_matrix[individual->route[i]][individual->route[i + 1]];
     }
     // Adicione a distância da última cidade de volta para a primeira
-    total_distance += calc_distance(cities[individual->route[NUM_CITIES - 1]], cities[individual->route[0]]);
+    total_distance += cost_matrix[individual->route[NUM_CITIES - 1]][individual->route[0]];
     
     // O fitness é o inverso da distância total (menor distância = fitness maior)
     individual->fitness = 1.0 / total_distance;
@@ -149,7 +152,7 @@ void genetic_algorithm() {
     Individual offspring[POP_SIZE]; 
 
     srand(time(NULL)); 
-    initialize_cities_from_file("cidades.csv"); 
+    initialize_cost_matrix_from_file("cidades1.csv"); 
 
     // Inicialize a população
     for (int i = 0; i < POP_SIZE; i++) {
@@ -200,10 +203,10 @@ void genetic_algorithm() {
     // Calcular o custo do caminho escolhido
     double total_distance = 0;
     for (int i = 0; i < NUM_CITIES - 1; i++) {
-        total_distance += calc_distance(cities[best_individual.route[i]], cities[best_individual.route[i + 1]]);
+        total_distance += cost_matrix[best_individual.route[i]][best_individual.route[i + 1]];
     }
     // Adicione a distância da última cidade de volta para a primeira
-    total_distance += calc_distance(cities[best_individual.route[NUM_CITIES - 1]], cities[best_individual.route[0]]);
+    total_distance += cost_matrix[best_individual.route[NUM_CITIES - 1]][best_individual.route[0]];
     printf("Custo do caminho escolhido: %f\n", total_distance);
 }
 
