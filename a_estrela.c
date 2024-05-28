@@ -7,164 +7,140 @@
 
 #define MAX_CITIES 15
 #define MAX_LINE_LENGTH 1024
-#define INTERVALO_TEMPO 60 
 
-// Estrutura para representar uma cidade
+// Estrutura para representar um estado no A*
 typedef struct {
-    int x;
-    int y;
-} City;
+    int *path;
+    int path_length;
+    int g; // Custo acumulado
+    int f; // Custo total estimado (g + h)
+} State;
 
 // Função para calcular a distância entre duas cidades
-int distance(City city1, City city2) {
-
-    return abs(city1.x - city2.x) + abs(city1.y - city2.y);
-
+int distance(int city1, int city2, int cost_table[MAX_CITIES][MAX_CITIES]) {
+    return cost_table[city1][city2];
 }
 
-// Função para calcular o custo total de um percurso
-int calculate_cost(int *path, int num_cities, int cost_table[][MAX_CITIES]) {
-
-    int cost = 0;
-
-    for (int i = 0; i < num_cities - 1; i++) {
-
-        cost += cost_table[path[i]][path[i + 1]];
-
-    }
-    cost += cost_table[path[num_cities - 1]][path[0]]; 
-
-    return cost;
-}
-
-// Função para trocar duas cidades em um percurso
-void swap_cities(int *path, int i, int j) {
-
-    int temp = path[i];
-
-    path[i] = path[j];
-
-    path[j] = temp;
-}
-
-// Função para encontrar o próximo permutação lexicograficamente
-int next_permutation(int *array, int size) {
-
-    int i = size - 1;
-
-    while (i > 0 && array[i - 1] >= array[i]) {
-        i--;
-    }
-
-    if (i <= 0) {
-        return 0;
-    }
-
-    int j = size - 1;
-    while (array[j] <= array[i - 1]) {
-        j--;
-    }
-
-    int temp = array[i - 1];
-    array[i - 1] = array[j];
-    array[j] = temp;
-
-    j = size - 1;
-
-    while (i < j) {
-
-        temp = array[i];
-
-        array[i] = array[j];
-
-        array[j] = temp;
-
-        i++;
-        j--;
-    }
-
-    return 1;
-}
-
-// Função para exportar os resultados para um arquivo de texto
-void export_results(int *optimal_path, int min_cost, double tempo_execucao, int num_cities) {
-
-    FILE *file = fopen("a_estrela_resultado.txt", "w");
-
-    if (file == NULL) {
-        fprintf(stderr, "Erro ao abrir o arquivo para escrita\n");
-        exit(1);
-    }
-
-    fprintf(file, "Caminho otimo: ");
-
+// Função heurística (distância mínima ao próximo vizinho)
+int heuristic(int city, int num_cities, int cost_table[MAX_CITIES][MAX_CITIES], int *visited) {
+    int min_distance = INT_MAX;
     for (int i = 0; i < num_cities; i++) {
-
-        fprintf(file, "%d ", optimal_path[i]);
-
+        if (!visited[i] && cost_table[city][i] < min_distance) {
+            min_distance = cost_table[city][i];
+        }
     }
-
-    fprintf(file, "\nCusto minimo: %d\n", min_cost);
-    fprintf(file, "Tempo de execucao: %.2f segundos\n", tempo_execucao);
-
-    fclose(file);
+    return (min_distance == INT_MAX) ? 0 : min_distance;
 }
 
-// Função para encontrar o percurso ótimo pelo método de força bruta
-void find_optimal_path(int num_cities, int cost_table[][MAX_CITIES]) {
+// Função para criar um novo estado
+State *create_state(int *path, int path_length, int g, int f) {
+    State *state = (State *)malloc(sizeof(State));
+    state->path = (int *)malloc(path_length * sizeof(int));
+    memcpy(state->path, path, path_length * sizeof(int));
+    state->path_length = path_length;
+    state->g = g;
+    state->f = f;
+    return state;
+}
 
-    int cities[num_cities]; 
+// Função para liberar a memória de um estado
+void free_state(State *state) {
+    free(state->path);
+    free(state);
+}
 
-    for (int i = 0; i < num_cities; i++) {
+// Função para comparar dois estados na priority queue
+int compare_states(const void *a, const void *b) {
+    return ((*(State **)a)->f - (*(State **)b)->f);
+}
 
-        cities[i] = i;
+// Função para encontrar o percurso ótimo pelo método A*
+void find_optimal_path(int num_cities, int cost_table[MAX_CITIES][MAX_CITIES]) {
+    // Inicializando a lista aberta como uma priority queue
+    State **open_list = (State **)malloc(num_cities * num_cities * sizeof(State *));
+    int open_list_size = 0;
 
-    }
+    // Estado inicial (começando da cidade 0)
+    int initial_path[1] = {0};
+    int initial_g = 0;
+    int visited[MAX_CITIES] = {0};
+    visited[0] = 1;
+    int initial_h = heuristic(0, num_cities, cost_table, visited);
+    State *initial_state = create_state(initial_path, 1, initial_g, initial_g + initial_h);
+    open_list[open_list_size++] = initial_state;
 
-    int optimal_path[num_cities];
+    int min_cost = INT_MAX;
+    int *optimal_path = NULL;
+    clock_t start_time = clock();
 
-    int min_cost = INT_MAX; 
-    
+    while (open_list_size > 0) {
+        // Ordenando a lista aberta para obter o estado com menor f(n)
+        qsort(open_list, open_list_size, sizeof(State *), compare_states);
+        State *current_state = open_list[--open_list_size];
 
-    clock_t start_time = clock(); 
-
-    // Gerando todas as permutações possíveis dos caminhos
-    do {
-
-        int cost = calculate_cost(cities, num_cities, cost_table); 
-
-        if (cost < min_cost) {
-
-            min_cost = cost; 
-
-            memcpy(optimal_path, cities, sizeof(cities));
-
+        // Verificando se todas as cidades foram visitadas e retornando à inicial
+        if (current_state->path_length == num_cities) {
+            int final_cost = current_state->g + distance(current_state->path[num_cities - 1], 0, cost_table);
+            if (final_cost < min_cost) {
+                min_cost = final_cost;
+                if (optimal_path) free(optimal_path);
+                optimal_path = (int *)malloc((num_cities + 1) * sizeof(int));
+                memcpy(optimal_path, current_state->path, num_cities * sizeof(int));
+                optimal_path[num_cities] = 0; // Voltando à cidade inicial
+            }
+            free_state(current_state);
+            continue;
         }
 
-        clock_t current_time = clock();
+        // Expandindo os vizinhos
+        for (int i = 0; i < num_cities; i++) {
+            int already_visited = 0;
+            for (int j = 0; j < current_state->path_length; j++) {
+                if (current_state->path[j] == i) {
+                    already_visited = 1;
+                    break;
+                }
+            }
+            if (already_visited) continue;
 
-        double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-
-        if (elapsed_time >= INTERVALO_TEMPO) {
-
-            export_results(optimal_path, min_cost, elapsed_time, num_cities);
-
-            printf("Custo minimo: %d\n", min_cost);
-            printf("Tempo de execucao: %.2f segundos\n", elapsed_time);
-
-            start_time = clock(); // Reiniciando o temporizador
+            int new_g = current_state->g + distance(current_state->path[current_state->path_length - 1], i, cost_table);
+            int new_path[current_state->path_length + 1];
+            memcpy(new_path, current_state->path, current_state->path_length * sizeof(int));
+            new_path[current_state->path_length] = i;
+            memset(visited, 0, sizeof(visited));
+            for (int k = 0; k <= current_state->path_length; k++) {
+                visited[new_path[k]] = 1;
+            }
+            int new_h = heuristic(i, num_cities, cost_table, visited);
+            State *new_state = create_state(new_path, current_state->path_length + 1, new_g, new_g + new_h);
+            open_list[open_list_size++] = new_state;
         }
-    } while (next_permutation(cities, num_cities)); // Gerando a próxima permutação
 
-    // Exportando os resultados finais
-    export_results(optimal_path, min_cost, (double)(clock() - start_time) / CLOCKS_PER_SEC, num_cities);
+        free_state(current_state);
+    }
 
-    printf("Custo minimo final: %d\n", min_cost);
-    printf("Tempo total de execucao: %.2f segundos\n", (double)(clock() - start_time) / CLOCKS_PER_SEC);
+    if (optimal_path) {
+        printf("Caminho ótimo: ");
+        for (int i = 0; i <= num_cities; i++) {
+            printf("%d ", optimal_path[i]);
+        }
+        printf("\nCusto mínimo: %d\n", min_cost);
+        free(optimal_path);
+    } else {
+        printf("Nenhum caminho encontrado.\n");
+    }
+
+    for (int i = 0; i < open_list_size; i++) {
+        free_state(open_list[i]);
+    }
+    free(open_list);
+
+    clock_t end_time = clock();
+    double execution_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("Tempo total de execução: %.2f segundos\n", execution_time);
 }
 
 int main() {
-
     setlocale(LC_ALL, ("Portuguese"));
 
     FILE *file;
@@ -177,31 +153,20 @@ int main() {
     file = fopen(filename, "r");
 
     if (file == NULL) {
-
         fprintf(stderr, "Não foi possível abrir o arquivo %s\n", filename);
         return 1;
-
     }
 
     // Ler o arquivo e construir a tabela de custos
     while (fgets(line, sizeof(line), file) && num_cities < MAX_CITIES) {
-
         char *token;
-
         int column = 0;
-
         token = strtok(line, ",");
-
         while (token != NULL && column < MAX_CITIES) {
-
             cost_table[num_cities][column] = atoi(token);
-
             token = strtok(NULL, ",");
-
             column++;
-
         }
-
         num_cities++;
     }
 
